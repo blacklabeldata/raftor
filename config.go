@@ -2,11 +2,10 @@ package raftor
 
 import "github.com/coreos/etcd/raft"
 
-// RaftConfig helps to configure a RaftNode
-type RaftConfig struct {
-	Name    string
-	Cluster Cluster
-	Storage raft.Storage
-
-	Raft raft.Config
+// ClusterConfig helps to configure a RaftNode
+type ClusterConfig struct {
+	Name      string
+	Raft      raft.Config
+	Notifiers []ClusterChangeNotifier
+	Applier   Applier
 }
