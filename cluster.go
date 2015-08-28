@@ -14,9 +14,6 @@ const (
 
 	// UpdateMember is used to describe a cluster change when a node is updated.
 	UpdateMember
-
-	// StopCluster is sent to the cluster when the Raft server has stopped.
-	StopCluster
 )
 
 // ClusterChangeEvent is used to store details about a cluster change. It is sent when a new node is detected and after the change has been applied to a raft log.
