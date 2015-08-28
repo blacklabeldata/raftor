@@ -6,7 +6,4 @@ import "github.com/coreos/etcd/raft"
 type RaftNode interface {
 	raft.Node
 	Starter
-
-	// Cluster returns the cluster
-	Cluster() Cluster
 }
