@@ -1,0 +1,19 @@
+{
+	"ImportPath": "github.com/blacklabeldata/raftor",
+	"GoVersion": "go1.4.2",
+	"Deps": [
+		{
+			"ImportPath": "github.com/coreos/etcd/raft",
+			"Comment": "v2.2.0-alpha.1-76-g97b211c",
+			"Rev": "97b211c8ba043cd4ba6972af26542966818f577d"
+		},
+		{
+			"ImportPath": "github.com/gogo/protobuf/proto",
+			"Rev": "bc4045a0c607d84f80555f486c4305db4bd0420f"
+		},
+		{
+			"ImportPath": "golang.org/x/net/context",
+			"Rev": "dfe268fd2bb5c793f4c083803609fce9806c6f80"
+		}
+	]
+}
