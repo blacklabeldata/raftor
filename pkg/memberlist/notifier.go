@@ -9,12 +9,12 @@ import (
 
 // BlockingNotifier blocks until each event has been consumed. It also implements the memberlist.EventDelegate interface which is used to process cluster membership events.
 func BlockingNotifier() Notifier {
-	return &notifier{make(chan raftor.ClusterChangeEvent), false}
+	return &notifier{make(chan raftor.ClusterChangeEvent)}
 }
 
 // BufferedNotifier will buffer events up to the size given. After the buffered channel is full it will block until an event has been consumed.
 func BufferedNotifier(size int) Notifier {
-	return &notifier{make(chan raftor.ClusterChangeEvent, size), false}
+	return &notifier{make(chan raftor.ClusterChangeEvent, size)}
 }
 
 // A Notifier subscribes to memberlist notifications and emits them as raftor.ClusterChangeEvents.
@@ -26,11 +26,10 @@ type Notifier interface {
 // notifier notifies the receiver of the cluster change.
 type notifier struct {
 	channel chan raftor.ClusterChangeEvent
-	closed  bool
 }
 
 // NotifyChange sends raftor.ClusterChangeEvents over the given channel when a node joins, leaves or is updated in the cluster.
-func (n *notifier) NotifyChange() <-chan raftor.ClusterChangeEvent {
+func (n *notifier) Notify() <-chan raftor.ClusterChangeEvent {
 	return n.channel
 }
 
@@ -67,18 +66,15 @@ func (n *notifier) NotifyUpdate(other *memberlist.Node) {
 
 // Stop closes the notifier channel
 func (n *notifier) Stop() {
-	n.closed = true
 	close(n.channel)
 }
 
 // send sends an event over the channel
 func (n *notifier) send(evt raftor.ClusterChangeEvent) {
-	if !n.closed {
-		n.channel <- evt
-	}
+	n.channel <- evt
 }
 
 // hash performs a Murmur3 hash on the memberlist.Node
 func (n *notifier) hash(other *memberlist.Node) uint64 {
-	return uint64(murmur.Murmur3(other.Meta, murmur.M3Seed))
+	return uint64(murmur.Murmur3([]byte(other.Name), murmur.M3Seed))
 }
