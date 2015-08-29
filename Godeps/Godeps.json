@@ -1,5 +1,5 @@
 {
-	"ImportPath": "github.com/eliquious/raftor",
+	"ImportPath": "github.com/blacklabeldata/raftor",
 	"GoVersion": "go1.4.2",
 	"Deps": [
 		{
