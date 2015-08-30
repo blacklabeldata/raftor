@@ -31,5 +31,5 @@ type RaftState struct {
 type Applier interface {
 
 	// Apply processes commit messages after being processed by Raft
-	Apply() chan Commit
+	Apply(Commit)
 }

@@ -1,11 +1,8 @@
 package raftor
 
-// ClusterChangeNotifier notifies the receiver of the cluster change.
-type ClusterChangeNotifier interface {
+// Notifier notifies the receiver of the cluster change.
+type Notifier interface {
 
-	// Change returns a channel of ClusterChangeEvents which can be read when a node joins, leaves or is updated in the cluster.
-	Notify() <-chan ClusterChangeEvent
-
-	// Stop stops the notifier from sending out any more notifications.
-	Stop()
+	// Notify returns a read-only channel of ClusterChangeEvents which can be read when a node joins, leaves or is updated in the cluster.
+	Notify(ClusterChangeEvent)
 }

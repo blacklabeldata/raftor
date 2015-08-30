@@ -24,6 +24,9 @@ type ClusterChangeEvent struct {
 
 // Cluster maintains an active list of nodes in the cluster. Cluster is also responsible for reporting and responding to changes in cluster membership.
 type Cluster interface {
+	Notifier
+	Applier
+	Updater
 
 	// ID represents the cluster ID.
 	ID() uint64
@@ -37,15 +40,6 @@ type Cluster interface {
 	// IsBanished checks whether the given ID has been removed from this
 	// cluster at some point in the past.
 	IsBanished(id uint64) bool
-
-	// Notifier returns a ClusterChangeNotifier and is used to notify the Raft node of cluster changes.
-	Notifier() ClusterChangeNotifier
-
-	// Applier returns an Applier which processes Raft log events.
-	Applier() Applier
-
-	// ApplyChange is called after the ClusterChangeEvent has been processed and stored by Raft.
-	ApplyChange() chan ClusterChangeEvent
 
 	// LocalNode returns the RaftNode which represents the local node of the cluster.
 	LocalNode() RaftNode
