@@ -10,6 +10,21 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// Implementation of raftor.ClusterChangeNotifier for testing
+func Notifier(notifyc chan raftor.ClusterChangeEvent) raftor.ClusterChangeNotifier {
+	return &testNotifier{notifyc}
+}
+
+// notifier notifies the receiver of the cluster change.
+type testNotifier struct {
+	channel chan raftor.ClusterChangeEvent
+}
+
+// send sends an event over the channel
+func (n *testNotifier) Notify(evt raftor.ClusterChangeEvent) {
+	n.channel <- evt
+}
+
 // TestBlockingNotifierJoin tests the BlockingNotifier with a NotifyJoin call. A ClusterChangeEvent should be generated and contain a Member representing the memberlist.Node that joined.
 func TestBlockingNotifierJoin(t *testing.T) {
 	metadata := []byte("metadata")
@@ -18,16 +33,23 @@ func TestBlockingNotifierJoin(t *testing.T) {
 		Meta: metadata,
 	}
 
-	// Create BlockingNotifier
-	blocker := BlockingNotifier()
+	// Setup notifier
+	out := make(chan raftor.ClusterChangeEvent)
+	defer close(out)
+
+	// Create blocking notifier
+	blocker := Notifier(out)
+
+	// Create event delegate
+	delegate := NewEventDelegate(blocker)
 
 	// NotifyJoin
 	go func() {
-		blocker.NotifyJoin(&node)
+		delegate.NotifyJoin(&node)
 	}()
 
-	evt := <-blocker.Notify()
-	blocker.Stop()
+	// Wait for event
+	evt := <-out
 
 	hash := uint64(murmur.Murmur3([]byte(node.Name), murmur.M3Seed))
 	assert.Equal(t, raftor.AddMember, evt.Type)
@@ -45,19 +67,23 @@ func TestBlockingNotifierLeave(t *testing.T) {
 		Meta: metadata,
 	}
 
-	// Create BlockingNotifier
-	blocker := BlockingNotifier()
+	// Setup notifier
+	out := make(chan raftor.ClusterChangeEvent)
+	defer close(out)
+
+	// Create blocking notifier
+	blocker := Notifier(out)
+
+	// Create event delegate
+	delegate := NewEventDelegate(blocker)
 
 	// NotifyLeave
 	go func() {
-		blocker.NotifyLeave(&node)
+		delegate.NotifyLeave(&node)
 	}()
 
 	// Wait for event
-	evt := <-blocker.Notify()
-
-	// Stop notifier
-	blocker.Stop()
+	evt := <-out
 
 	// Test correctness
 	hash := uint64(murmur.Murmur3([]byte(node.Name), murmur.M3Seed))
@@ -76,45 +102,29 @@ func TestBlockingNotifierUpdate(t *testing.T) {
 		Meta: metadata,
 	}
 
-	// Create BlockingNotifier
-	blocker := BlockingNotifier()
+	// Setup notifier
+	out := make(chan raftor.ClusterChangeEvent)
+	defer close(out)
+
+	// Create blocking notifier
+	blocker := Notifier(out)
+
+	// Create event delegate
+	delegate := NewEventDelegate(blocker)
 
 	// NotifyUpdate
 	go func() {
-		blocker.NotifyUpdate(&node)
+		delegate.NotifyUpdate(&node)
 	}()
 
 	// Wait for event
-	evt := <-blocker.Notify()
-
-	// Stop notifier
-	blocker.Stop()
+	evt := <-out
 
 	// Test correctness
 	hash := uint64(murmur.Murmur3([]byte(node.Name), murmur.M3Seed))
 	assert.Equal(t, raftor.UpdateMember, evt.Type)
 	assert.Equal(t, hash, evt.Member.ID())
 	assert.Equal(t, metadata, evt.Member.Meta())
-}
-
-// TestBlockingNotifierStopPanic tests the BlockingNotifier with a NotifyUpdate call after the Notifier has been stopped. The update message should cause a panic as a message will be sent after the channel has been closed. In order to avoid this panic, the memberlist should be shut down before stopping a Notifier.
-func TestBlockingNotifierStopPanic(t *testing.T) {
-	defer func() {
-		assert.NotNil(t, recover(), "Should panic")
-	}()
-
-	metadata := []byte("metadata")
-	node := memberlist.Node{
-		Name: "Node 1",
-		Meta: metadata,
-	}
-
-	// Create BlockingNotifier
-	blocker := BlockingNotifier()
-	blocker.Stop()
-
-	// NotifyUpdate
-	blocker.NotifyUpdate(&node)
 }
 
 // TestBlockingNotifier tests the BlockingNotifier with multiple messages.
@@ -126,41 +136,45 @@ func TestBlockingNotifier(t *testing.T) {
 	// Hash node
 	hash := uint64(murmur.Murmur3([]byte(node.Name), murmur.M3Seed))
 
-	// Create BufferedNotifier
-	notifier := BlockingNotifier()
+	// Setup notifier
+	out := make(chan raftor.ClusterChangeEvent)
+	defer close(out)
+
+	// Create blocking notifier
+	notifier := Notifier(out)
+
+	// Create event delegate
+	delegate := NewEventDelegate(notifier)
 
 	// Perform notifications
 	go func() {
 		node.Meta = []byte("join")
-		notifier.NotifyJoin(&node)
+		delegate.NotifyJoin(&node)
 
 		node.Meta = []byte("update")
-		notifier.NotifyUpdate(&node)
+		delegate.NotifyUpdate(&node)
 
 		node.Meta = []byte("leave")
-		notifier.NotifyLeave(&node)
+		delegate.NotifyLeave(&node)
 	}()
 
 	// Test join
-	evt := <-notifier.Notify()
+	evt := <-out
 	assert.Equal(t, raftor.AddMember, evt.Type)
 	assert.Equal(t, hash, evt.Member.ID())
 	assert.True(t, bytes.Equal([]byte("join"), evt.Member.Meta()))
 
 	// Test update
-	evt = <-notifier.Notify()
+	evt = <-out
 	assert.Equal(t, raftor.UpdateMember, evt.Type)
 	assert.Equal(t, hash, evt.Member.ID())
 	assert.True(t, bytes.Equal([]byte("update"), evt.Member.Meta()))
 
 	// Test leave
-	evt = <-notifier.Notify()
+	evt = <-out
 	assert.Equal(t, raftor.RemoveMember, evt.Type)
 	assert.Equal(t, hash, evt.Member.ID())
 	assert.True(t, bytes.Equal([]byte("leave"), evt.Member.Meta()))
-
-	// Notifier
-	notifier.Stop()
 }
 
 // TestBufferedNotifierJoin tests the BufferedNotifier with multiple messages.
@@ -172,39 +186,43 @@ func TestBufferedNotifier(t *testing.T) {
 	// Hash node
 	hash := uint64(murmur.Murmur3([]byte(node.Name), murmur.M3Seed))
 
-	// Create BufferedNotifier
-	notifier := BufferedNotifier(3)
+	// Setup notifier
+	out := make(chan raftor.ClusterChangeEvent, 3)
+	defer close(out)
+
+	// Create blocking notifier
+	notifier := Notifier(out)
+
+	// Create event delegate
+	delegate := NewEventDelegate(notifier)
 
 	// Perform notifications
 	go func() {
 		node.Meta = []byte("join")
-		notifier.NotifyJoin(&node)
+		delegate.NotifyJoin(&node)
 
 		node.Meta = []byte("update")
-		notifier.NotifyUpdate(&node)
+		delegate.NotifyUpdate(&node)
 
 		node.Meta = []byte("leave")
-		notifier.NotifyLeave(&node)
+		delegate.NotifyLeave(&node)
 	}()
 
 	// Test join
-	evt := <-notifier.Notify()
+	evt := <-out
 	assert.Equal(t, raftor.AddMember, evt.Type)
 	assert.Equal(t, hash, evt.Member.ID())
 	assert.True(t, bytes.Equal([]byte("join"), evt.Member.Meta()))
 
 	// Test update
-	evt = <-notifier.Notify()
+	evt = <-out
 	assert.Equal(t, raftor.UpdateMember, evt.Type)
 	assert.Equal(t, hash, evt.Member.ID())
 	assert.True(t, bytes.Equal([]byte("update"), evt.Member.Meta()))
 
 	// Test leave
-	evt = <-notifier.Notify()
+	evt = <-out
 	assert.Equal(t, raftor.RemoveMember, evt.Type)
 	assert.Equal(t, hash, evt.Member.ID())
 	assert.True(t, bytes.Equal([]byte("leave"), evt.Member.Meta()))
-
-	// Stop notifier
-	notifier.Stop()
 }

@@ -4,8 +4,6 @@ import "github.com/coreos/etcd/raft"
 
 // ClusterConfig helps to configure a RaftNode
 type ClusterConfig struct {
-	Name      string
-	Raft      raft.Config
-	Notifiers []ClusterChangeNotifier
-	Applier   Applier
+	Name string
+	Raft raft.Config
 }
